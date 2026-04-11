@@ -7,17 +7,11 @@ exports.handler = async (event) => {
     const body = event.body ? JSON.parse(event.body) : {};
 
     if (path === "/register" && event.httpMethod === "POST") {
-      if (!body.email || !body.password) {
-        return { statusCode: 400, body: JSON.stringify({ error: "Email and password required" }) };
-      }
       const result = await createUser(body.email, body.password);
       return { statusCode: 201, body: JSON.stringify(result) };
     }
 
     if (path === "/login" && event.httpMethod === "POST") {
-      if (!body.email || !body.password) {
-        return { statusCode: 400, body: JSON.stringify({ error: "Email and password required" }) };
-      }
       const result = await login(body.email, body.password);
       if (result.error) {
         return { statusCode: 401, body: JSON.stringify(result) };
