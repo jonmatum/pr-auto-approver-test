@@ -17,7 +17,7 @@ def authenticate(request):
     return verify_token(token)
 
 def login(email, password):
-    user = db.execute("SELECT * FROM users WHERE email = %s", (email,))
-    if user and bcrypt.checkpw(password.encode(), user["password_hash"].encode()):
-        return create_token(user["id"], email)
+    user = User.query.filter_by(email=email).first()
+    if user and bcrypt.checkpw(password.encode(), user.password_hash.encode()):
+        return create_token(user.id, email)
     return None
