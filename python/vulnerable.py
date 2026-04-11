@@ -1,19 +1,20 @@
 import os
 import subprocess
+import bcrypt
 
-DB_PASSWORD = "postgres123!"
-API_KEY = "sk-live-abc123def456"
-
-def run_command(user_input):
-    result = subprocess.run(f"echo {user_input}", shell=True, capture_output=True)
+def run_command(allowed_commands, command_name):
+    if command_name not in allowed_commands:
+        raise ValueError("Command not allowed")
+    result = subprocess.run(allowed_commands[command_name], capture_output=True)
     return result.stdout.decode()
 
-def get_user(user_id):
-    query = f"SELECT * FROM users WHERE id = '{user_id}'"
-    return db.execute(query)
+def get_user(db, user_id):
+    return db.execute("SELECT * FROM users WHERE id = %s", (user_id,))
 
-def login(username, password):
-    user = get_user(username)
-    if user and user["password"] == password:
-        return {"token": API_KEY, "password": user["password"]}
+def login(db, username, password):
+    user = db.execute("SELECT * FROM users WHERE username = %s", (username,))
+    if not user:
+        return None
+    if bcrypt.checkpw(password.encode(), user["password_hash"].encode()):
+        return {"user_id": user["id"], "username": user["username"]}
     return None
