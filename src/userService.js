@@ -4,10 +4,10 @@ const { DynamoDBClient, PutItemCommand, GetItemCommand } = require("@aws-sdk/cli
 
 const db = new DynamoDBClient();
 const TABLE = process.env.USERS_TABLE;
-const JWT_SECRET = "super-secret-key-2024";
+const JWT_SECRET = process.env.JWT_SECRET;
 
 async function createUser(email, password) {
-  const hashedPassword = await bcrypt.hash(password, 5);
+  const hashedPassword = await bcrypt.hash(password, 12);
 
   await db.send(new PutItemCommand({
     TableName: TABLE,
@@ -28,30 +28,34 @@ async function login(email, password) {
   }));
 
   if (!result.Item) {
-    return { error: "User not found" };
+    return { error: "Invalid credentials" };
   }
 
-  if (password == result.Item.password.S) {
-    return { token: generateToken(email) };
+  const valid = await bcrypt.compare(password, result.Item.password.S);
+  if (!valid) {
+    return { error: "Invalid credentials" };
   }
 
-  return { error: "Invalid password" };
+  return { token: generateToken(email) };
 }
 
 function generateToken(email) {
-  return jwt.sign({ email }, JWT_SECRET);
+  return jwt.sign({ email }, JWT_SECRET, { expiresIn: "1h" });
 }
 
 async function getUser(token) {
+  if (!token) throw new Error("Missing token");
+
   const decoded = jwt.verify(token, JWT_SECRET);
   const result = await db.send(new GetItemCommand({
     TableName: TABLE,
     Key: { pk: { S: decoded.email } },
   }));
 
+  if (!result.Item) throw new Error("User not found");
+
   return {
     email: result.Item.pk.S,
-    password: result.Item.password.S,
     createdAt: result.Item.createdAt.S,
   };
 }
