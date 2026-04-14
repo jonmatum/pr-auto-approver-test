@@ -3,6 +3,8 @@ import sqlite3
 import os
 import bcrypt
 
+import hmac
+
 app = Flask(__name__)
 
 
@@ -22,7 +24,10 @@ def admin_login():
     if not password:
         return jsonify({"error": "Password required"}), 400
     admin_hash = os.environ.get("ADMIN_PASSWORD_HASH", "")
-    if bcrypt.checkpw(password.encode(), admin_hash.encode()):
+    if not admin_hash:
+        return jsonify({"error": "Server misconfigured"}), 500
+    computed = bcrypt.hashpw(password.encode(), admin_hash.encode())
+    if hmac.compare_digest(computed, admin_hash.encode()):
         return jsonify({"status": "ok"})
     return jsonify({"error": "Invalid credentials"}), 401
 
@@ -40,5 +45,7 @@ def get_user_detail(user_id):
 @app.route("/admin/hash", methods=["POST"])
 def hash_password():
     pw = request.json.get("password", "")
-    hashed = bcrypt.hashpw(pw.encode(), bcrypt.gensalt())
-    return jsonify({"hash": hashed.decode()})
+    if not pw:
+        return jsonify({"error": "Password required"}), 400
+    bcrypt.hashpw(pw.encode(), bcrypt.gensalt())
+    return jsonify({"status": "ok", "message": "Password hashed successfully"})

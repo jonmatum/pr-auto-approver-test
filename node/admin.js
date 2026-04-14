@@ -2,15 +2,20 @@ const express = require("express");
 const app = express();
 app.use(express.json());
 
+const escapeHtml = (str) => String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
 const ALLOWED_TEMPLATES = {
-  greeting: (data) => `Hello, ${data.name}!`,
-  summary: (data) => `Order #${data.id}: ${data.status}`,
+  greeting: (data) => `Hello, ${escapeHtml(data.name || "")}!`,
+  summary: (data) => `Order #${escapeHtml(data.id || "")}: ${escapeHtml(data.status || "")}`,
 };
 
 app.post("/template", (req, res) => {
-  const fn = ALLOWED_TEMPLATES[req.body.template];
-  if (!fn) return res.status(400).json({ error: "Unknown template" });
-  res.json({ output: fn(req.body.data || {}) });
+  const templateName = req.body.template;
+  if (typeof templateName !== "string" || !ALLOWED_TEMPLATES[templateName]) {
+    return res.status(400).json({ error: "Unknown template" });
+  }
+  const data = req.body.data && typeof req.body.data === "object" ? req.body.data : {};
+  res.json({ output: ALLOWED_TEMPLATES[templateName](data) });
 });
 
 app.get("/config", (req, res) => {
