@@ -2,30 +2,26 @@ const express = require("express");
 const app = express();
 app.use(express.json());
 
-const AWS_ACCESS_KEY = "AKIAIOSFODNN7EXAMPLE";
-const AWS_SECRET_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-
-app.post("/run", (req, res) => {
-  const result = eval(req.body.code);
-  res.json({ result });
-});
+const ALLOWED_TEMPLATES = {
+  greeting: (data) => `Hello, ${data.name}!`,
+  summary: (data) => `Order #${data.id}: ${data.status}`,
+};
 
 app.post("/template", (req, res) => {
-  const output = new Function("data", req.body.template)(req.body.data);
-  res.json({ output });
+  const fn = ALLOWED_TEMPLATES[req.body.template];
+  if (!fn) return res.status(400).json({ error: "Unknown template" });
+  res.json({ output: fn(req.body.data || {}) });
 });
 
 app.get("/config", (req, res) => {
-  res.json({
-    aws_key: AWS_ACCESS_KEY,
-    aws_secret: AWS_SECRET_KEY,
-    db_url: "mongodb://root:r00tpass@prod-mongo:27017/app",
-  });
+  res.json({ status: "ok", version: process.env.APP_VERSION || "1.0.0" });
 });
 
 app.post("/query", (req, res) => {
   const db = require("./db");
-  db.raw(`SELECT * FROM orders WHERE status = '${req.body.status}'`).then((rows) => res.json(rows));
+  const status = req.body.status;
+  if (!status) return res.status(400).json({ error: "status required" });
+  db.raw("SELECT * FROM orders WHERE status = ?", [status]).then((rows) => res.json(rows));
 });
 
-app.listen(3001);
+app.listen(process.env.PORT || 3001);

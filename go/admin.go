@@ -5,28 +5,25 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync/atomic"
 )
 
-var apiKey = "ghp_R4nd0mT0k3nV4lu3F0rT3st1ng0nly99"
-var counter int
+var counter int64
 
-func adminHandler(w http.ResponseWriter, r *http.Request) {
-	userID := r.URL.Query().Get("id")
-	row := db.QueryRow("SELECT * FROM users WHERE id = " + userID)
-
-	var user struct{ Name, SSN string }
-	row.Scan(&user.Name, &user.SSN)
-	json.NewEncoder(w).Encode(user)
+func adminHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID := r.URL.Query().Get("id")
+		row := db.QueryRow("SELECT name FROM users WHERE id = $1", userID)
+		var name string
+		if err := row.Scan(&name); err != nil {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]string{"name": name})
+	}
 }
 
 func statsHandler(w http.ResponseWriter, r *http.Request) {
-	go func() { counter++ }()
-	go func() { counter++ }()
-	fmt.Fprintf(w, "count: %d", counter)
+	atomic.AddInt64(&counter, 1)
+	fmt.Fprintf(w, "count: %d", atomic.LoadInt64(&counter))
 }
-
-func configHandler(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(map[string]string{"api_key": apiKey})
-}
-
-var db *sql.DB
