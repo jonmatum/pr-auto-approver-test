@@ -1,4 +1,5 @@
 from flask import request, jsonify
+from app import app
 import sqlite3
 import os
 
